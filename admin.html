@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Admin Panel</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Unbounded:wght@400;600;700&display=swap');
+
+  :root {
+    --bg:       #0d0d0f;
+    --bg2:      #141417;
+    --bg3:      #1c1c21;
+    --border:   #2a2a32;
+    --accent:   #7c6aff;
+    --accent2:  #a78bfa;
+    --green:    #22d3a0;
+    --red:      #ff5e6d;
+    --yellow:   #fbbf24;
+    --text:     #e8e8f0;
+    --muted:    #6b6b80;
+    --radius:   14px;
+    --font:     'JetBrains Mono', monospace;
+    --title:    'Unbounded', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+  }
+  .topbar-logo {
+    font-family: var(--title);
+    font-size: 15px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+  }
+  .topbar-bot {
+    font-size: 11px; color: var(--muted);
+    margin-left: auto;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── NAV ── */
+  .nav {
+    display: flex; gap: 2px;
+    background: var(--bg2);
+    padding: 6px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 9px;
+    border: none; background: transparent;
+    color: var(--muted); font-family: var(--font);
+    font-size: 12px; cursor: pointer;
+    white-space: nowrap; transition: all .2s;
+  }
+  .nav-btn.active {
+    background: var(--bg3);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .nav-btn .nav-icon { font-size: 15px; }
+
+  /* ── CONTENT ── */
+  .page { display: none; padding: 16px; animation: fadeIn .25s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+  /* ── STAT CARDS ── */
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    position: relative; overflow: hidden;
+    transition: transform .2s;
+  }
+  .stat-card:active { transform: scale(.97); }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; right: 0;
+    width: 60px; height: 60px;
+    background: var(--accent);
+    opacity: .05;
+    border-radius: 50%;
+    transform: translate(20px, -20px);
+  }
+  .stat-label {
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .8px;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: var(--title);
+    font-size: 22px; font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-value.green { color: var(--green); }
+  .stat-value.accent { color: var(--accent2); }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* ── SECTION HEADER ── */
+  .section-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .add-btn {
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 12px; border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: transparent; color: var(--accent);
+    font-family: var(--font); font-size: 11px;
+    cursor: pointer; transition: all .2s;
+  }
+  .add-btn:active { background: var(--accent); color: #fff; }
+
+  /* ── LIST ITEM ── */
+  .list-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .list-item:active { transform: scale(.98); background: var(--bg3); }
+  .list-item-row { display: flex; align-items: flex-start; gap: 10px; }
+  .list-item-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--bg3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+  }
+  .list-item-body { flex: 1; min-width: 0; }
+  .list-item-name {
+    font-size: 13px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .list-item-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .list-item-right {
+    display: flex; flex-direction: column; align-items: flex-end;
+    gap: 4px; flex-shrink: 0;
+  }
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 8px; border-radius: 6px;
+    font-size: 10px; font-weight: 500;
+  }
+  .badge-green { background: rgba(34,211,160,.12); color: var(--green); }
+  .badge-red   { background: rgba(255,94,109,.12);  color: var(--red); }
+  .badge-accent{ background: rgba(124,106,255,.15); color: var(--accent2); }
+  .badge-muted { background: var(--bg3); color: var(--muted); }
+
+  /* ── CHART BAR ── */
+  .mini-chart { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+  .bar {
+    flex: 1; background: var(--accent);
+    opacity: .3; border-radius: 3px 3px 0 0;
+    transition: opacity .3s;
+    min-width: 8px;
+  }
+  .bar:last-child { opacity: 1; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left; font-size: 10px;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: .8px; padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 11px 10px;
+    border-bottom: 1px solid rgba(42,42,50,.6);
+    font-size: 12px;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .td-mono { font-family: var(--font); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,.7);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    width: 100%; padding: 20px;
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+    max-height: 85vh; overflow-y: auto;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-handle {
+    width: 40px; height: 4px; border-radius: 2px;
+    background: var(--border); margin: 0 auto 20px;
+  }
+  .modal-title {
+    font-family: var(--title);
+    font-size: 16px; font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  /* ── FORM ── */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 14px;
+    color: var(--text); font-family: var(--font);
+    font-size: 13px; outline: none;
+    transition: border-color .2s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--accent);
+  }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field select option { background: var(--bg2); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 14px;
+    border-radius: 12px; border: none;
+    font-family: var(--font); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #9333ea);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(124,106,255,.3);
+  }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-danger {
+    background: rgba(255,94,109,.12);
+    color: var(--red); border: 1px solid rgba(255,94,109,.2);
+  }
+  .btn-secondary {
+    background: var(--bg3);
+    color: var(--text); border: 1px solid var(--border);
+  }
+  .btn + .btn { margin-top: 8px; }
+
+  /* ── TOGGLE ── */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 0; border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 13px; }
+  .toggle-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .toggle {
+    position: relative; width: 44px; height: 24px; flex-shrink: 0;
+  }
+  .toggle input { display: none; }
+  .toggle-track {
+    position: absolute; inset: 0; border-radius: 12px;
+    background: var(--bg3); cursor: pointer;
+    transition: background .2s;
+    border: 1px solid var(--border);
+  }
+  .toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+  .toggle-thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; transition: transform .2s;
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); }
+
+  /* ── LOADING ── */
+  .loading {
+    display: flex; align-items: center; justify-content: center;
+    height: 120px; color: var(--muted);
+    flex-direction: column; gap: 12px;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to{ transform: rotate(360deg); } }
+
+  /* ── EMPTY ── */
+  .empty {
+    text-align: center; padding: 40px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: .4; }
+
+  /* ── NOTIFICATION ── */
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--bg3); border: 1px solid var(--border);
+    padding: 12px 20px; border-radius: 12px;
+    font-size: 13px; z-index: 500;
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+    white-space: nowrap;
+    box-shadow: 0 8px 30px rgba(0,0,0,.4);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error   { border-color: var(--red); color: var(--red); }
+
+  /* ── REVENUE CARD ── */
+  .rev-card {
+    background: linear-gradient(135deg, rgba(124,106,255,.15), rgba(147,51,234,.1));
+    border: 1px solid rgba(124,106,255,.25);
+    border-radius: var(--radius);
+    padding: 18px; margin-bottom: 10px;
+  }
+  .rev-main { font-family: var(--title); font-size: 28px; font-weight: 700; }
+  .rev-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .rev-progress {
+    height: 4px; background: var(--bg3);
+    border-radius: 2px; margin-top: 14px; overflow: hidden;
+  }
+  .rev-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px; transition: width .5s ease;
+  }
+
+  /* ── USER AVATAR ── */
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #9333ea);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; color: #fff;
+    flex-shrink: 0;
+  }
+
+  /* ── PILLS / TABS ── */
+  .pills {
+    display: flex; gap: 6px; margin-bottom: 14px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .pills::-webkit-scrollbar { display: none; }
+  .pill {
+    padding: 6px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); font-family: var(--font); font-size: 11px;
+    cursor: pointer; white-space: nowrap; transition: all .2s;
+  }
+  .pill.active {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+
+  /* ── SETTINGS CARD ── */
+  .settings-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 14px;
+    margin-bottom: 10px;
+  }
+
+  /* ── QUICK ACTION ── */
+  .quick-actions {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-bottom: 16px;
+  }
+  .qa {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 6px; text-align: center;
+    cursor: pointer; transition: all .2s;
+  }
+  .qa:active { transform: scale(.95); background: var(--bg3); }
+  .qa-icon { font-size: 20px; margin-bottom: 5px; }
+  .qa-label { font-size: 9px; color: var(--muted); line-height: 1.3; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── SEARCH ── */
+  .search-wrap { position: relative; margin-bottom: 12px; }
+  .search-wrap input {
+    width: 100%; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px 10px 36px;
+    color: var(--text); font-family: var(--font); font-size: 12px;
+    outline: none;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-icon {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%); color: var(--muted); font-size: 14px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">⚡ ADMIN</div>
+  <div class="topbar-bot">
+    <span class="status-dot"></span>
+    <span id="bot-name">загрузка...</span>
+  </div>
+</div>
+
+<nav class="nav" id="nav">
+  <button class="nav-btn active" data-page="dashboard" onclick="switchPage('dashboard')">
+    <span class="nav-icon">⬛</span> Главная
+  </button>
+  <button class="nav-btn" data-page="tariffs" onclick="switchPage('tariffs')">
+    <span class="nav-icon">📦</span> Тарифы
+  </button>
+  <button class="nav-btn" data-page="users" onclick="switchPage('users')">
+    <span class="nav-icon">👥</span> Юзеры
+  </button>
+  <button class="nav-btn" data-page="payments" onclick="switchPage('payments')">
+    <span class="nav-icon">💳</span> Оплаты
+  </button>
+  <button class="nav-btn" data-page="settings" onclick="switchPage('settings')">
+    <span class="nav-icon">⚙️</span> Настройки
+  </button>
+</nav>
+
+<!-- ══ DASHBOARD ══ -->
+<div class="page active" id="page-dashboard">
+  <div class="rev-card">
+    <div class="stat-label">Общий доход</div>
+    <div class="rev-main" id="total-rev">—</div>
+    <div class="rev-sub" id="rev-limit-txt">из — лимита</div>
+    <div class="rev-progress"><div class="rev-bar" id="rev-bar" style="width:0%"></div></div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Пользователей</div>
+      <div class="stat-value accent" id="stat-users">—</div>
+      <div class="stat-sub" id="stat-users-new">+0 сегодня</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Подписок</div>
+      <div class="stat-value green" id="stat-subs">—</div>
+      <div class="stat-sub" id="stat-subs-pct">активных</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Доход сегодня</div>
+      <div class="stat-value" id="stat-today">—</div>
+      <div class="stat-sub" id="stat-today-cnt">транзакций</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">За месяц</div>
+      <div class="stat-value" id="stat-month">—</div>
+      <div class="stat-sub">оплат</div>
+    </div>
+  </div>
+
+  <div class="section-hdr">
+    <div class="section-title">Быстрые действия</div>
+  </div>
+  <div class="quick-actions">
+    <div class="qa" onclick="openModal('modal-add-tariff')">
+      <div class="qa-icon">➕</div>
+      <div class="qa-label">Новый тариф</div>
+    </div>
+    <div class="qa" onclick="switchPage('users')">
+      <div class="qa-icon">👥</div>
+      <div class="qa-label">Юзеры</div>
+    </div>
+    <div class="qa" onclick="switchPage('payments')">
+      <div class="qa-icon">💰</div>
+      <div class="qa-label">Оплаты</div>
+    </div>
+    <div class="qa" onclick="openModal('modal-broadcast')">
+      <div class="qa-icon">📢</div>
+      <div class="qa-label">Рассылка</div>
+    </div>
+  </div>
+
+  <div class="section-hdr">
+    <div class="section-title">Последние оплаты</div>
+    <button class="add-btn" onclick="switchPage('payments')">все →</button>
+  </div>
+  <div id="recent-payments"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ══ TARIFFS ══ -->
+<div class="page" id="page-tariffs">
+  <div class="section-hdr">
+    <div class="section-title">Тарифы</div>
+    <button class="add-btn" onclick="openModal('modal-add-tariff')">+ Создать</button>
+  </div>
+  <div class="pills" id="tariff-filter">
+    <button class="pill active" onclick="filterTariffs('all', this)">Все</button>
+    <button class="pill" onclick="filterTariffs('active', this)">Активные</button>
+    <button class="pill" onclick="filterTariffs('hidden', this)">Скрытые</button>
+  </div>
+  <div id="tariff-list"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ══ USERS ══ -->
+<div class="page" id="page-users">
+  <div class="section-hdr">
+    <div class="section-title">Пользователи</div>
+    <button class="add-btn" onclick="openModal('modal-grant-sub')">+ Подписка</button>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" placeholder="Поиск по имени или id..." oninput="searchUsers(this.value)" id="user-search">
+  </div>
+  <div class="pills" id="user-filter">
+    <button class="pill active" onclick="filterUsers('all', this)">Все</button>
+    <button class="pill" onclick="filterUsers('active', this)">Подписка</button>
+    <button class="pill" onclick="filterUsers('blocked', this)">Блок</button>
+  </div>
+  <div id="user-list"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ══ PAYMENTS ══ -->
+<div class="page" id="page-payments">
+  <div class="section-hdr">
+    <div class="section-title">Оплаты</div>
+  </div>
+  <div class="pills" id="pay-filter">
+    <button class="pill active" onclick="filterPayments('all', this)">Все</button>
+    <button class="pill" onclick="filterPayments('pending', this)">⏳ Ожидают</button>
+    <button class="pill" onclick="filterPayments('confirmed', this)">✅ Подтв.</button>
+  </div>
+  <div id="payment-list"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div class="page" id="page-settings">
+  <div class="section-hdr">
+    <div class="section-title">Настройки бота</div>
+  </div>
+
+  <div class="settings-card">
+    <div class="toggle-row" id="toggle-support">
+      <div>
+        <div class="toggle-label">💬 Поддержка</div>
+        <div class="toggle-sub">Кнопка поддержки для юзеров</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="set-support" onchange="updateSetting('support_enabled', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">💰 Донат</div>
+        <div class="toggle-sub">Кнопка доната для юзеров</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="set-donate" onchange="updateSetting('donate_enabled', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">🔔 Уведомления</div>
+        <div class="toggle-sub">Оплата, кик и т.д.</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="set-notif-pay" onchange="updateSetting('notify_payment', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">🔔 Напоминание за 3 дня</div>
+        <div class="toggle-sub">До истечения подписки</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="set-remind3" onchange="updateSetting('remind_3days', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">🔔 Напоминание за 1 день</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="set-remind1" onchange="updateSetting('remind_1day', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="section-hdr" style="margin-top:16px">
+    <div class="section-title">Каналы</div>
+    <button class="add-btn" onclick="switchPage('settings'); loadChannels()">обновить</button>
+  </div>
+  <div id="channels-list"><div class="loading"><div class="spinner"></div></div></div>
+
+  <div style="margin-top:16px">
+    <button class="btn btn-danger" onclick="confirmBroadcast()">📢 Рассылка</button>
+  </div>
+</div>
+
+
+<!-- ═══════ MODALS ═══════ -->
+
+<!-- ADD TARIFF -->
+<div class="modal-overlay" id="modal-add-tariff" onclick="closeModalOverlay(event, this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="tariff-modal-title">Новый тариф</div>
+    <div class="field"><label>Название</label>
+      <input type="text" id="tf-name" placeholder="VIP Доступ"></div>
+    <div class="field-row">
+      <div class="field"><label>Цена</label>
+        <input type="number" id="tf-price" placeholder="299"></div>
+      <div class="field"><label>Валюта</label>
+        <select id="tf-cur">
+          <option>RUB</option><option>USD</option><option>EUR</option><option>USDT</option>
+        </select></div>
+    </div>
+    <div class="field"><label>Длительность (дней)</label>
+      <input type="number" id="tf-days" placeholder="30"></div>
+    <div class="field"><label>Описание</label>
+      <textarea id="tf-desc" placeholder="Описание тарифа..."></textarea></div>
+    <input type="hidden" id="tf-id">
+    <button class="btn btn-primary" onclick="saveTariff()">💾 Сохранить</button>
+    <button class="btn btn-secondary" onclick="closeModal('modal-add-tariff')">Отмена</button>
+  </div>
+</div>
+
+<!-- USER DETAIL -->
+<div class="modal-overlay" id="modal-user" onclick="closeModalOverlay(event, this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="user-modal-name">Пользователь</div>
+    <div id="user-modal-body"></div>
+  </div>
+</div>
+
+<!-- PAYMENT DETAIL -->
+<div class="modal-overlay" id="modal-payment" onclick="closeModalOverlay(event, this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Оплата</div>
+    <div id="pay-modal-body"></div>
+  </div>
+</div>
+
+<!-- BROADCAST -->
+<div class="modal-overlay" id="modal-broadcast" onclick="closeModalOverlay(event, this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📢 Рассылка</div>
+    <div class="pills" style="margin-bottom:12px">
+      <button class="pill active" id="bc-to-all" onclick="setBcMode('all', this)">Всем</button>
+      <button class="pill" onclick="setBcMode('active', this)">С подпиской</button>
+      <button class="pill" onclick="setBcMode('expired', this)">Без подписки</button>
+    </div>
+    <div class="field">
+      <label>Текст (HTML поддерживается)</label>
+      <textarea id="bc-text" placeholder="Ваше сообщение..." style="min-height:120px"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="sendBroadcast()">📢 Отправить</button>
+    <button class="btn btn-secondary" onclick="closeModal('modal-broadcast')">Отмена</button>
+  </div>
+</div>
+
+<!-- GRANT SUB -->
+<div class="modal-overlay" id="modal-grant-sub" onclick="closeModalOverlay(event, this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✅ Выдать подписку</div>
+    <div class="field"><label>Telegram ID пользователя</label>
+      <input type="number" id="gs-uid" placeholder="123456789"></div>
+    <div class="field"><label>Тариф</label>
+      <select id="gs-tariff"></select></div>
+    <div class="field"><label>Дней (оставьте пустым = по тарифу)</label>
+      <input type="number" id="gs-days" placeholder="30"></div>
+    <button class="btn btn-primary" onclick="grantSub()">✅ Выдать</button>
+    <button class="btn btn-secondary" onclick="closeModal('modal-grant-sub')">Отмена</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+// Theme sync
+if (tg.colorScheme === 'light') {
+  document.documentElement.style.setProperty('--bg', '#f0f0f5');
+  document.documentElement.style.setProperty('--bg2', '#fff');
+  document.documentElement.style.setProperty('--bg3', '#f4f4f8');
+  document.documentElement.style.setProperty('--text', '#1a1a2e');
+  document.documentElement.style.setProperty('--border', '#e0e0ea');
+}
+
+const BASE = window.location.origin;
+const initData = tg.initData || '';
+let currentFilter = { tariffs: 'all', users: 'all', payments: 'all' };
+let allTariffs = [], allUsers = [], allPayments = [];
+let bcMode = 'all';
+let currentToken = '';
+
+async function api(path, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Init-Data': initData,
+      'X-Bot-Token': currentToken
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(BASE + '/api/admin' + path, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── INIT ──
+async function init() {
+  // Get bot token from URL or tg WebApp startParam
+  const params = new URLSearchParams(window.location.search);
+  currentToken = params.get('token') || tg.initDataUnsafe?.start_param || '';
+
+  try {
+    const data = await api('/stats');
+    document.getElementById('bot-name').textContent = '@' + (data.bot_username || 'bot');
+
+    // Revenue
+    const rev = parseFloat(data.total_revenue || 0);
+    const lim = parseFloat(data.revenue_limit || 50);
+    document.getElementById('total-rev').textContent = rev.toFixed(2) + '$';
+    document.getElementById('rev-limit-txt').textContent = `из ${lim}$ лимита`;
+    setTimeout(() => {
+      document.getElementById('rev-bar').style.width = Math.min(100, (rev/lim*100)).toFixed(1) + '%';
+    }, 200);
+
+    document.getElementById('stat-users').textContent = data.total_users || 0;
+    document.getElementById('stat-users-new').textContent = `+${data.new_today || 0} сегодня`;
+    document.getElementById('stat-subs').textContent = data.active_subs || 0;
+    document.getElementById('stat-subs-pct').textContent = `из ${data.total_users || 0} юзеров`;
+    document.getElementById('stat-today').textContent = (data.revenue_today || 0).toFixed(0) + '₽';
+    document.getElementById('stat-month').textContent = (data.revenue_month || 0).toFixed(0) + '₽';
+
+    renderRecentPayments(data.recent_payments || []);
+  } catch(e) {
+    toast('❌ Ошибка загрузки', 'error');
+  }
+}
+
+function renderRecentPayments(payments) {
+  const el = document.getElementById('recent-payments');
+  if (!payments.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">💳</div>Оплат нет</div>'; return; }
+  el.innerHTML = payments.slice(0,5).map(p => `
+    <div class="list-item" onclick="openPaymentDetail(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+      <div class="list-item-row">
+        <div class="list-item-icon">💳</div>
+        <div class="list-item-body">
+          <div class="list-item-name">${esc(p.full_name || 'Пользователь')}</div>
+          <div class="list-item-meta">${esc(p.tariff_name || '')} · ${timeAgo(p.created_at)}</div>
+        </div>
+        <div class="list-item-right">
+          <div style="font-size:13px;font-weight:600;color:var(--green)">${p.amount} ${p.currency||'₽'}</div>
+          <span class="badge ${p.status==='confirmed'?'badge-green':p.status==='rejected'?'badge-red':'badge-accent'}">${
+            p.status==='confirmed'?'✓':p.status==='rejected'?'✗':'•'
+          }</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── PAGES ──
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelector(`[data-page="${name}"]`).classList.add('active');
+  if (name === 'tariffs') loadTariffs();
+  if (name === 'users')   loadUsers();
+  if (name === 'payments') loadPayments();
+  if (name === 'settings') loadSettings();
+}
+
+// ── TARIFFS ──
+async function loadTariffs() {
+  document.getElementById('tariff-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    allTariffs = await api('/tariffs');
+    renderTariffs();
+  } catch(e) { document.getElementById('tariff-list').innerHTML = '<div class="empty"><div class="empty-icon">📦</div>Ошибка</div>'; }
+}
+
+function filterTariffs(f, btn) {
+  currentFilter.tariffs = f;
+  document.querySelectorAll('#tariff-filter .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  renderTariffs();
+}
+
+function renderTariffs() {
+  let ts = allTariffs;
+  if (currentFilter.tariffs === 'active') ts = ts.filter(t => t.is_active && !t.is_hidden);
+  if (currentFilter.tariffs === 'hidden') ts = ts.filter(t => t.is_hidden);
+  const el = document.getElementById('tariff-list');
+  if (!ts.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📦</div>Тарифов нет</div>'; return; }
+  el.innerHTML = ts.map(t => `
+    <div class="list-item" onclick="editTariff(${t.id})">
+      <div class="list-item-row">
+        <div class="list-item-icon">${t.is_hidden ? '👁' : t.is_active ? '✅' : '❌'}</div>
+        <div class="list-item-body">
+          <div class="list-item-name">${esc(t.name)}</div>
+          <div class="list-item-meta">${t.price} ${t.currency} · ${t.duration_days} дн.</div>
+        </div>
+        <div class="list-item-right">
+          <span class="badge ${t.is_active && !t.is_hidden ? 'badge-green' : 'badge-muted'}">${t.is_active && !t.is_hidden ? 'активен' : 'скрыт'}</span>
+          <span style="font-size:10px;color:var(--muted)">${t.buys || 0} продаж</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function editTariff(id) {
+  const t = allTariffs.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('tariff-modal-title').textContent = 'Редактировать тариф';
+  document.getElementById('tf-id').value = id;
+  document.getElementById('tf-name').value = t.name;
+  document.getElementById('tf-price').value = t.price;
+  document.getElementById('tf-cur').value = t.currency;
+  document.getElementById('tf-days').value = t.duration_days;
+  document.getElementById('tf-desc').value = t.description || '';
+  openModal('modal-add-tariff');
+}
+
+async function saveTariff() {
+  const id = document.getElementById('tf-id').value;
+  const data = {
+    name:     document.getElementById('tf-name').value,
+    price:    parseFloat(document.getElementById('tf-price').value),
+    currency: document.getElementById('tf-cur').value,
+    duration_days: parseInt(document.getElementById('tf-days').value),
+    description: document.getElementById('tf-desc').value
+  };
+  if (!data.name || !data.price || !data.duration_days) { toast('Заполните все поля', 'error'); return; }
+  try {
+    if (id) { await api(`/tariffs/${id}`, 'PUT', data); toast('✅ Тариф обновлён'); }
+    else    { await api('/tariffs', 'POST', data); toast('✅ Тариф создан'); }
+    closeModal('modal-add-tariff');
+    document.getElementById('tf-id').value = '';
+    document.getElementById('tf-name').value = '';
+    document.getElementById('tariff-modal-title').textContent = 'Новый тариф';
+    loadTariffs();
+  } catch(e) { toast('❌ Ошибка: ' + e.message, 'error'); }
+}
+
+// ── USERS ──
+async function loadUsers() {
+  document.getElementById('user-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    allUsers = await api('/users');
+    renderUsers();
+  } catch(e) { document.getElementById('user-list').innerHTML = '<div class="empty">Ошибка</div>'; }
+}
+
+function filterUsers(f, btn) {
+  currentFilter.users = f;
+  document.querySelectorAll('#user-filter .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  renderUsers();
+}
+
+function searchUsers(q) {
+  renderUsers(q.toLowerCase());
+}
+
+function renderUsers(q = '') {
+  let us = allUsers;
+  if (currentFilter.users === 'active')  us = us.filter(u => u.has_active_sub);
+  if (currentFilter.users === 'blocked') us = us.filter(u => u.is_blocked);
+  if (q) us = us.filter(u => (u.full_name||'').toLowerCase().includes(q) || String(u.user_id).includes(q));
+  const el = document.getElementById('user-list');
+  if (!us.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div>Не найдено</div>'; return; }
+  el.innerHTML = us.slice(0, 50).map(u => `
+    <div class="list-item" onclick="openUser(${u.user_id})">
+      <div class="list-item-row">
+        <div class="avatar">${(u.full_name||'U')[0].toUpperCase()}</div>
+        <div class="list-item-body">
+          <div class="list-item-name">${esc(u.full_name || 'Без имени')}</div>
+          <div class="list-item-meta">${u.username ? '@'+u.username : 'id'+u.user_id}</div>
+        </div>
+        <div class="list-item-right">
+          ${u.has_active_sub ? '<span class="badge badge-green">✓ подписка</span>' : '<span class="badge badge-muted">—</span>'}
+          ${u.is_blocked ? '<span class="badge badge-red">блок</span>' : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function openUser(uid) {
+  const u = allUsers.find(x => x.user_id === uid);
+  if (!u) return;
+  const modalBody = document.getElementById('user-modal-body');
+  document.getElementById('user-modal-name').textContent = u.full_name || 'Пользователь';
+  modalBody.innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;gap:16px;margin-bottom:14px">
+        <div class="stat-card" style="flex:1;padding:12px">
+          <div class="stat-label">ID</div>
+          <div style="font-size:13px;font-weight:600">${u.user_id}</div>
+        </div>
+        <div class="stat-card" style="flex:1;padding:12px">
+          <div class="stat-label">Username</div>
+          <div style="font-size:13px">${u.username ? '@'+u.username : '—'}</div>
+        </div>
+      </div>
+      ${u.has_active_sub ? `<div class="badge badge-green" style="margin-bottom:10px;padding:8px 12px;border-radius:8px;display:inline-block">✅ Подписка активна до ${u.sub_end ? u.sub_end.slice(0,10) : '—'}</div>` : '<div class="badge badge-muted" style="margin-bottom:10px;padding:8px 12px;border-radius:8px;display:inline-block">Нет подписки</div>'}
+    </div>
+    <button class="btn btn-primary" onclick="openGrantForUser(${u.user_id})" style="margin-bottom:8px">✅ Выдать подписку</button>
+    <button class="btn ${u.is_blocked ? 'btn-secondary' : 'btn-danger'}" onclick="toggleBlock(${u.user_id}, ${u.is_blocked})">
+      ${u.is_blocked ? '🔓 Разблокировать' : '🚫 Заблокировать'}
+    </button>
+    <button class="btn btn-secondary" onclick="sendMsgToUser(${u.user_id})">💬 Написать пользователю</button>
+  `;
+  openModal('modal-user');
+}
+
+async function toggleBlock(uid, isBlocked) {
+  try {
+    await api(`/users/${uid}/${isBlocked ? 'unblock' : 'block'}`, 'POST');
+    toast(isBlocked ? '🔓 Разблокирован' : '🚫 Заблокирован');
+    closeModal('modal-user');
+    loadUsers();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function openGrantForUser(uid) {
+  closeModal('modal-user');
+  document.getElementById('gs-uid').value = uid;
+  openModal('modal-grant-sub');
+}
+
+async function grantSub() {
+  const uid = document.getElementById('gs-uid').value;
+  const tid = document.getElementById('gs-tariff').value;
+  const days = document.getElementById('gs-days').value;
+  if (!uid || !tid) { toast('Заполните поля', 'error'); return; }
+  try {
+    await api('/users/grant-sub', 'POST', { user_id: parseInt(uid), tariff_id: parseInt(tid), days: days ? parseInt(days) : null });
+    toast('✅ Подписка выдана');
+    closeModal('modal-grant-sub');
+    loadUsers();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ── PAYMENTS ──
+async function loadPayments() {
+  document.getElementById('payment-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    allPayments = await api('/payments');
+    renderPayments();
+  } catch(e) { document.getElementById('payment-list').innerHTML = '<div class="empty">Ошибка</div>'; }
+}
+
+function filterPayments(f, btn) {
+  currentFilter.payments = f;
+  document.querySelectorAll('#pay-filter .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  renderPayments();
+}
+
+function renderPayments() {
+  let ps = allPayments;
+  if (currentFilter.payments !== 'all') ps = ps.filter(p => p.status === currentFilter.payments);
+  const el = document.getElementById('payment-list');
+  if (!ps.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">💳</div>Нет оплат</div>'; return; }
+  el.innerHTML = ps.map(p => `
+    <div class="list-item" onclick='openPaymentDetail(${JSON.stringify(p).replace(/'/g,"&#39;")})'>
+      <div class="list-item-row">
+        <div class="list-item-icon">${p.status==='confirmed'?'✅':p.status==='rejected'?'❌':'⏳'}</div>
+        <div class="list-item-body">
+          <div class="list-item-name">${esc(p.full_name || 'id'+p.user_id)}</div>
+          <div class="list-item-meta">${esc(p.tariff_name||'')} · ${timeAgo(p.created_at)}</div>
+        </div>
+        <div class="list-item-right">
+          <div style="font-size:13px;font-weight:600;color:var(--green)">${p.amount} ${p.currency||'₽'}</div>
+          <span class="badge ${p.status==='confirmed'?'badge-green':p.status==='rejected'?'badge-red':'badge-accent'}">
+            ${p.status==='confirmed'?'✓ подтв':p.status==='rejected'?'✗ откл':'⏳ ожид'}
+          </span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openPaymentDetail(p) {
+  const body = document.getElementById('pay-modal-body');
+  const isPending = p.status === 'pending';
+  body.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div class="stat-grid">
+        <div class="stat-card" style="padding:12px">
+          <div class="stat-label">Сумма</div>
+          <div class="stat-value green" style="font-size:18px">${p.amount} ${p.currency||'₽'}</div>
+        </div>
+        <div class="stat-card" style="padding:12px">
+          <div class="stat-label">Статус</div>
+          <div class="stat-value" style="font-size:14px">${p.status}</div>
+        </div>
+      </div>
+      <div class="list-item" style="margin-top:10px;cursor:default">
+        <div style="font-size:11px;color:var(--muted)">Пользователь</div>
+        <div style="margin-top:4px">${esc(p.full_name||'')} · id${p.user_id}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Тариф</div>
+        <div style="margin-top:4px">${esc(p.tariff_name||'—')}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Дата</div>
+        <div style="margin-top:4px">${p.created_at ? p.created_at.slice(0,16).replace('T',' ') : '—'}</div>
+      </div>
+    </div>
+    ${isPending ? `
+      <button class="btn btn-primary" onclick="confirmPayment(${p.id})">✅ Подтвердить</button>
+      <button class="btn btn-danger" onclick="rejectPayment(${p.id})">❌ Отклонить</button>
+    ` : ''}
+    <button class="btn btn-secondary" onclick="closeModal('modal-payment')">Закрыть</button>
+  `;
+  if (p.proof_file_id) {
+    body.insertAdjacentHTML('afterbegin', `<div style="margin-bottom:12px;text-align:center;color:var(--muted);font-size:11px">📷 Чек прикреплён</div>`);
+  }
+  openModal('modal-payment');
+}
+
+async function confirmPayment(id) {
+  try {
+    await api(`/payments/${id}/confirm`, 'POST');
+    toast('✅ Подтверждено'); closeModal('modal-payment'); loadPayments();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+async function rejectPayment(id) {
+  try {
+    await api(`/payments/${id}/reject`, 'POST');
+    toast('❌ Отклонено'); closeModal('modal-payment'); loadPayments();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ── SETTINGS ──
+async function loadSettings() {
+  try {
+    const s = await api('/settings');
+    document.getElementById('set-support').checked = !!s.support_enabled;
+    document.getElementById('set-donate').checked = !!s.donate_enabled;
+    document.getElementById('set-notif-pay').checked = !!s.notify_payment;
+    document.getElementById('set-remind3').checked = !!s.remind_3days;
+    document.getElementById('set-remind1').checked = !!s.remind_1day;
+    loadChannels();
+    // Populate grant-sub tariff select
+    const sel = document.getElementById('gs-tariff');
+    sel.innerHTML = allTariffs.map(t => `<option value="${t.id}">${t.name} — ${t.price} ${t.currency}</option>`).join('');
+  } catch(e) { toast('Ошибка настроек', 'error'); }
+}
+
+async function loadChannels() {
+  try {
+    const chs = await api('/channels');
+    const el = document.getElementById('channels-list');
+    if (!chs.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📡</div>Нет каналов</div>'; return; }
+    el.innerHTML = `<div class="settings-card">` + chs.map(ch => `
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">📡 ${esc(ch.channel_title||ch.channel_id)}</div>
+          <div class="toggle-sub">id: ${ch.channel_id}</div>
+        </div>
+        <button onclick="delChannel(${ch.id})" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer">×</button>
+      </div>`).join('') + `</div>`;
+  } catch(e) {}
+}
+
+async function delChannel(id) {
+  if (!confirm('Удалить канал?')) return;
+  try { await api(`/channels/${id}`, 'DELETE'); loadChannels(); toast('✅ Канал удалён'); }
+  catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function updateSetting(key, value) {
+  try {
+    await api('/settings', 'POST', { key, value: value ? 1 : 0 });
+    toast('✅ Сохранено');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ── BROADCAST ──
+function setBcMode(mode, btn) {
+  bcMode = mode;
+  document.querySelectorAll('#modal-broadcast .pills .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function sendBroadcast() {
+  const text = document.getElementById('bc-text').value.trim();
+  if (!text) { toast('Введите текст', 'error'); return; }
+  try {
+    const r = await api('/broadcast', 'POST', { text, mode: bcMode });
+    toast(`✅ Отправлено ${r.success} / ${r.total}`);
+    closeModal('modal-broadcast');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function confirmBroadcast() { openModal('modal-broadcast'); }
+
+async function sendMsgToUser(uid) {
+  const text = prompt('Сообщение пользователю:');
+  if (!text) return;
+  try {
+    await api(`/users/${uid}/message`, 'POST', { text });
+    toast('✅ Сообщение отправлено');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ── MODAL ──
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function closeModalOverlay(e, el) {
+  if (e.target === el) el.classList.remove('open');
+}
+
+// ── TOAST ──
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── UTILS ──
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeAgo(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt.includes('T') ? dt : dt + 'Z');
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'только что';
+  if (diff < 3600) return Math.floor(diff/60) + ' мин';
+  if (diff < 86400) return Math.floor(diff/3600) + ' ч';
+  return Math.floor(diff/86400) + ' дн';
+}
+
+// ── START ──
+init();
+</script>
+</body>
+</html>
